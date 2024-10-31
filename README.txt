@@ -14,3 +14,6 @@ functionality. See wrapper_synthetic.py, for how to generate some of
 the tables in the paper, and the various tests (test_SMAs.py and
 test_evaluations.py) for insights on the behaviour of the various
 functions.
+
+TODO: Add a few real-world sequences from the paper, as well as code
+for experiments on those sequences.
