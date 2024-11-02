@@ -1,9 +1,8 @@
 
 
-
-Sparse Moving Averages (SMAs), or efficient space-bounded categorical
-learners/predictors, for online open-ended non-stationary probabilistic prediction,
-following the paper 'Tracking Changing Probabilities via Dynamic
+This repository contains code for Sparse Moving Averages (SMAs), or efficient 
+space-bounded categorical predictors, for online open-ended probabilistic prediction
+under non-stationarity, following the paper 'Tracking Changing Probabilities via Dynamic
 Learners'.
 
 See SMAs.py for a number of SMAs such as Sparse EMA and Qs, and see
@@ -17,3 +16,5 @@ functions.
 
 TODO: Add a few real-world sequences from the paper, as well as code
 for experiments on those sequences.
+
+
