@@ -4,16 +4,27 @@
 # Dynamic Learners', includes a number of sparse moving
 # average techniques ('SMAs'), such as the Sparse EMA, a rate-based
 # technique, and count-based techniques (or queue
-# based, eg Qs), and combinations, such as DYAL. SMAs are designed for
-# detecting+tracking changing probabilities, i.e., tracking
-# proportions of (discrete) items in a (possibly unbounded) non-stationary 
-# stream of items.
+# based, eg Qs), and a combination called DYAL. 
 
-# Currently, these are (mostly) designed for multiclass problems
-# (i.e., exactly one item is observed at each time point), but
-# 'multilabel' variants exist too (No item observed, or more than one
-# item observed at a time point). See the time-stamp method below for a bit
-# of support for that, as well as fractional observations.
+# Time is discrete and the main function of an SMA is to predict at each time
+# point t, meaning outputting zero or more, in general relatively few items (eg 10s to 100s), 
+# each with an 
+# associated probability p, a number in [0,1] (with the rough semantics that the item is oberved at t with 
+# probability p). The probabilities may also satisfy the 
+# semi-distribution property, ie summing to no more than 1 (the plain Qs predictor violates that property, and
+# the Box predictor often outputs a distribution). The semi-distribution property is useful and can be imposed by
+# simple post processing of an SMA's output (see filter_and_cap in sma_eval_utils.py).
+#
+# The other important function of an SMA is updating (learning). Below, we mostly assume exactly one item is observed at 
+# t (the multiclass property). This observation can be used to update the SMA (adapt the SMA's internal model 
+# or parameters), so that the probabilities output in the future improve or keep up with the changes in the stream.
+# (see the time-stamp method below for some support for the multilabel case, as well as fractional, 
+#  not just 0 or 1, observations). 
+#
+# Thus, SMAs are designed for
+# (detecting and) tracking changing probabilities, i.e., tracking
+# proportions of (discrete) items over a (possibly unbounded) non-stationary 
+# stream of items. For the current techniques below, 'detection' of change, is implicit. 
 
 # The SMAs in this file as of this writing: SEMA (sparse EMA, 'Sima'), Qs, Box, 
 # TimeStampQs, and DYAL.
