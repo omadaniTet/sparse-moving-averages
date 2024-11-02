@@ -1,18 +1,22 @@
 #
 #
 # This file, following the paper 'Tracking Changing Probabilities via
-# Dynamic Learners', includes a number of sparse (multiclass) moving
+# Dynamic Learners', includes a number of sparse moving
 # average techniques ('SMAs'), such as the Sparse EMA, a rate-based
-# technique, and count-based techniques (or sliding window or queue
+# technique, and count-based techniques (or queue
 # based, eg Qs), and combinations, such as DYAL. SMAs are designed for
 # detecting+tracking changing probabilities, i.e., tracking
-# proportions of (discrete) items in (possibly unbounded) streams of
-# items.
+# proportions of (discrete) items in a (possibly unbounded) non-stationary 
+# stream of items.
 
 # Currently, these are (mostly) designed for multiclass problems
 # (i.e., exactly one item is observed at each time point), but
 # 'multilabel' variants exist too (No item observed, or more than one
-# item observed at a time point).
+# item observed at a time point). See the time-stamp method below for a bit
+# of support for that, as well as fractional observations.
+
+# The SMAs in this file as of this writing: SEMA (sparse EMA, 'Sima'), Qs, Box, 
+# TimeStampQs, and DYAL.
 
 # common abbreviations used:
 #
@@ -268,8 +272,7 @@ class ObsQ: # Queue of observation counts.
         self.queue = [1] + self.queue
         self.queue = self.queue[:self.k]
 
-    # (in ObsQ  .. and this is for the Expedition application )
-    # (when creating new concepts involving grping...)
+    # (in ObsQ  )
     # 
     # Allocate a new queue and copy contents from queue q.
     @classmethod
@@ -472,9 +475,7 @@ class Qs:
     def get_raw_prob_map(self):
         return self.get_distro(normalize=0)
     
-    #### for Expedition (in Qs)
-
-    # in Qs, for Expedition
+    # in Qs
     def get_weight_map(self):
         # we  need to construct the map..
         c_to_p = {}
@@ -899,7 +900,7 @@ class DYAL:
         self.c_to_prob = Counter() # Map from c to the EMA probability.
         self.c_to_lr = {} # Each edge has its own EMA learning rate.
         self.c_to_q = {} # map of concept/item to queue
-        # both 'negative and positive' seen counts.. useful for binomial tail within expedition.
+        # both 'negative and positive' seen counts...
         self.c_to_update = Counter()
         # this 'positive' one may be just for trouble-shooting
         self.c_to_pos_update = Counter() # update_counts or seen_times (positive updates)
@@ -1237,8 +1238,6 @@ class DYAL:
             print('%s:%.3f lr:%.3f (qProb:%.3f, qCount:%d)'% (
                 c, p, lr, q.get_prob(), q.get_count()))
 
-    #### for Expedition (in DYAL)
-    
     # Note: if you use the queue, the counts are smaller.
     # but, we are not currently explicity keeping count for
     # each c (item) (we could!).
