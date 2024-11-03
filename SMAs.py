@@ -1,8 +1,8 @@
 #
 #
 # This file, following the paper 'Tracking Changing Probabilities via
-# Dynamic Learners', includes a number of sparse moving
-# average techniques ('SMAs'), such as the Sparse EMA, a rate-based
+# Dynamic Learners' (https://arxiv.org/abs/2402.10142v2), includes a number 
+# of sparse moving average techniques ('SMAs'), such as the Sparse EMA, a rate-based
 # technique, and count-based techniques (or queue
 # based, eg Qs), and a combination called DYAL. 
 
@@ -29,7 +29,7 @@
 # The SMAs in this file as of this writing: SEMA (sparse EMA, 'Sima'), Qs, Box, 
 # TimeStampQs, and DYAL.
 
-# common abbreviations used:
+# common abbreviations used below:
 #
 # distro: distribution or semi-distribution
 # lr: learning rate  (and related:  minlr, maxlr, etc)
