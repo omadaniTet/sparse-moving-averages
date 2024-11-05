@@ -7,16 +7,18 @@
 # based, eg Qs), and a combination called DYAL. 
 
 # Time is discrete and the main function of an SMA is to predict at each time
-# point t, meaning outputting zero or more, in general relatively few items (eg 10s to 100s), 
-# each with an 
-# associated probability p, a number in [0,1] (with the rough semantics that the item is oberved at t with 
-# probability p). The probabilities may also satisfy the 
-# semi-distribution property, ie summing to no more than 1 (the plain Qs predictor violates that property, and
-# the Box predictor often outputs a distribution). The semi-distribution property is useful and can be imposed by
-# simple post processing of an SMA's output (see filter_and_cap in sma_eval_utils.py).
+# point t, meaning outputting zero or more, in general relatively few items (eg 10s to 100s,
+# which depends on the predictor's constant space allotment), each with an 
+# associated probability p, a number in [0,1] (with the rough semantics that the item will be observed at time
+# t with  probability p). The probabilities may also satisfy the semi-distribution property, ie summing to
+# no more than 1 (the plain Qs predictor violates the semi-distribution property, and
+# the Box predictor often outputs a proper distribution). The semi-distribution property is useful and can be imposed 
+# on the output by simple post processing of an SMA's output: see filter_and_cap in sma_eval_utils.py. We  
+# apply filter_and_cap in evaluations.
 #
-# The other important function of an SMA is updating (learning). Below, we mostly assume exactly one item is observed at 
-# t (the multiclass property). This observation can be used to update the SMA (adapt the SMA's internal model 
+# The other important function of an SMA is updating (learning). After prediction, the actual item is observed and 
+# updating can take place. Below, we mostly assume exactly one item is observed at 
+# t (the multiclass property or problem). This observation can be used to update the SMA (adapt the SMA's internal model 
 # or parameters), so that the probabilities output in the future improve or keep up with the changes in the stream.
 # (see the time-stamp method below for some support for the multilabel case, as well as fractional, 
 #  not just 0 or 1, observations). 
@@ -32,11 +34,11 @@
 # common abbreviations used below:
 #
 # distro: distribution or semi-distribution
+# SD or sd: semi-distribution
 # lr: learning rate  (and related:  minlr, maxlr, etc)
 # obs : an observation (an item)
 # prob or pr: probability
 # Qs: The 'queues' technique
-# SD or sd: semi-distribution
 #
 #
 
