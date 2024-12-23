@@ -89,14 +89,6 @@ ceiling_prob =   1.0 # 0.1 ( max_prob )
 # When generating a new prob distro, should all items be new??
 all_new = 1 # vs recycle or reuse items when creating underlying SDs (if 1, do NOT recycle)
 
-# [these are for changing one item, eg removing/replacing it, etc..]
-# The probability of attempting the types of change in distro event.
-permute_prob  = 0.13 # probability of permuting (reassigning probs)..
-
-# they can sum to more than 1, if more than 1, implies always try them
-# in that order...
-subtract_prob = 0.33
-
 ###
 
 def make_args(msg='Synthetic experiments for SMAs'):
