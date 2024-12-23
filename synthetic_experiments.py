@@ -71,8 +71,6 @@ noise_id = 1 # available id for an NS (noise) item
 
 # Gradually move these
 
-loss_type = 7 # global loss type
-
 # Could be moved into args.
 ignore_NS = False # Ignore/skip  NS items in computing logloss, etc??
 
