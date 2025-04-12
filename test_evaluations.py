@@ -1,4 +1,4 @@
-# Test FC(), logloss, Quadloss/Brier, etc.
+# Unit tests of FC(), logloss, Quadloss/Brier, etc.
 
 import numpy.testing as npt
 from math import log
