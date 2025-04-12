@@ -1,6 +1,8 @@
 import numpy.testing as npt
 from SMAs import *
 
+# Unit tests for SMAs.
+#
 # NOTE: some of the asserts (tests) below are with equality and pass
 # eventhough the quantities compared are float.  In case the tests do
 # not pass in other environments: npt could be used for approximate
