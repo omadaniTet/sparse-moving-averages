@@ -1,6 +1,3 @@
-import numpy as np
-import argparse
-
 #
 # To support generation of data for plots in synthetic experiments.
 # For starters, plot of DYAL probability outputs, on a binary
