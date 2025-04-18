@@ -16,16 +16,22 @@ on a few types of synthesized sequences.  The begining of
 synthetic_experiments.py gives examples of runs and describes
 functionality. 
 
-- See dyal_on_binary.py for an example of a function that generates
+- See dyal_on_binary.py for an example:  a function that generates
 arrays of output (learned) probabilities from running DYAL on a binary 
 oscillating sequence (gives an example of plotting the data).
+
+The picture, dyal_001_differentBinomThrshs_syn_oscillates.png, plots DYAL's estimates when 
+the binomial tail parameter is changed, one of {1, 3, 5, 10}, 
+min learning-rate of 0.001, on the same binary oscillating (0.025<->0.25) sequence (setting to 1 leads
+to high variance (close the Qs), and 10 can be too conservative (close to static EMA, 
+fixed rate of 0.001).
 
 - See wrapper_synthetic.py, for how to generate some of
 the tables' entries in the paper. 
 
 
 - See the two unit test files (test_SMAs.py and
-test_evaluations.py) for insights on the behaviour of the various
+test_evaluations.py) for additional insights on the behaviour of the various
 functions.
 
 TODO: Add a few real-world sequences from the paper, as well as code
