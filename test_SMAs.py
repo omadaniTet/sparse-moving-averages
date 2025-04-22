@@ -398,10 +398,13 @@ def tests_DYAL():
 
 if __name__ == "__main__":
 
-
     tests_EMA()
     tests_Box()
     tests_Qs()
     tests_TimeStamp()
     tests_DYAL()
+    
+    print('\n\n# Done with SMA unit tests!\n\n')
+
+
 
