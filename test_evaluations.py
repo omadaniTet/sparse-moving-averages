@@ -173,4 +173,7 @@ if __name__ == "__main__":
     test_ideal_llNS_values()
     test_ideal_brier_losses()
     test_referee()
+    
+    print('\n\n# Done with evaluations' unit tests!\n\n')
+    
 
