@@ -1355,7 +1355,7 @@ class EMA:
             if self.rate is None: # if maximum (starting) rate is not specified.
                 self.rate = SMA_Constants.max_harmonic_lr # set rate (self.lr)
             # now, set the min_rate (when use_harmonic is true)
-            self.min_rate = min_prob / 10.0
+            self.min_rate = self.min_prob / 10.0
             if SMA_Constants.min_lr is not None:
                 self.min_rate = SMA_Constants.min_lr
             if min_rate is not None:
