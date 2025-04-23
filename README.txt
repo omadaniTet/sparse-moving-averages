@@ -27,14 +27,11 @@ to high variance (close the Qs), and 10 can be too conservative (close to static
 fixed rate of 0.001).
 
 - See wrapper_synthetic.py, for how to generate some of
-the tables' entries in the paper. 
+  the tables' entries in the paper. 
 
+- realworld_seqs.py reads from Expedition sequences (108) and reports on that (either 
+  one SMA or compare a pair like above).  TODO: add more sequences, eg Unix ones.
 
-- See the two unit test files (test_SMAs.py and
-test_evaluations.py) for additional insights on the behaviour of the various
-functions.
-
-TODO: Add a few real-world sequences from the paper, as well as code
-for experiments on those sequences.
-
+- See the two unit test files (test_SMAs.py andtest_evaluations.py) for additional 
+  insights on the behaviour of the various functions.
 
