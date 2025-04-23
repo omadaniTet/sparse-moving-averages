@@ -16,6 +16,8 @@
 # # On 5 sequences of length 1000 each, use Sparse EMA (single method)
 # python3 synthetic_experiments.py -nseq 5 -sl 1000 -sma ema
 #
+#  ( where --sma could be dyal, ema, qs, or box )
+#
 # The default is reporting on a single method, where a method's
 # parameters can be specified, and a number of loss types are
 # reported.
