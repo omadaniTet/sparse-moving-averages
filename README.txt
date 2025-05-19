@@ -30,7 +30,11 @@ fixed rate of 0.001).
   the tables' entries in the paper. 
 
 - realworld_seqs.py reads from Expedition sequences (108) and reports on that (either 
-  one SMA or compare a pair like above).  TODO: add more sequences, eg Unix ones.
+  one SMA or compare a pair like above).  
+
+For Masquerade Unix sequences, please get the sequences from: 
+https://www.schonlau.net/masquerade/MasqueradeDat.gz
+(and we used the first uncorrupted 5k from each of the 50 sequences)
 
 - See the two unit test files (test_SMAs.py andtest_evaluations.py) for additional 
   insights on the behaviour of the various functions.
