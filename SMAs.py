@@ -48,7 +48,7 @@ import random, numpy as np, sys, math
 
 from math import log
 
-from misc_utils import kl_bounded
+from sma_utils import kl_bounded
 
 ###
 
