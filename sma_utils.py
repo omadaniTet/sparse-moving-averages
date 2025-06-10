@@ -42,6 +42,21 @@ def kl_general(ps, qs):
         assert q > 0 # what to do with 0s?
         s += p * log(p / q)
     return s
+##
+
+# bounded kl() or relative_entropy() ..  for the binary case..
+def kl_bounded(a, b):
+    """a and b are probabilities, and their order matters.  So
+    relatively entropy of b with respect to a (or divergence of b from
+    a)..  Using natural log or ln (for 'nats').
+
+    """
+    assert(b > 0)
+    if a >= 1.0:
+        return a * log(a / b)  # short circuit.  
+    if b >= 0.999: # so 1-b is not zero..
+        b = 0.999
+    return a * log(a / b) + (1 - a) * log(  (1-a) / (1-b) )
 
 ####### Losses
 
