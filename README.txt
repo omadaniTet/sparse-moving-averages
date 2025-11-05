@@ -6,7 +6,7 @@ under non-stationarity, following the paper 'Tracking Changing Probabilities via
 Learners' ( https://arxiv.org/abs/2402.10142v2 ). 'Open-ended' means the set of 
 items that would be seen in the input stream is not known to the predictor, and can grow
 unbounded with passage of time. The predictor, being space-bounded (finite space, independent 
-of streamm length), can only predict a relatively small subset of items, each with an estimated 
+of stream length), can only predict a relatively small subset of items, each with an estimated 
 probability (a 'moving average'), at any given time.
 
 - See SMAs.py for a number of SMAs such as Sparse EMA and Qs
