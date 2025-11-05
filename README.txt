@@ -12,7 +12,7 @@ probability (a 'moving average'), at any given time.
 - See SMAs.py for a number of SMAs such as Sparse EMA and Qs
 
 - Use synthetic_experiments.py for evaluating and comparing these techniques
-on a few types of synthesized sequences.  The begining of
+on a few types of synthesized sequences.  The beginning of
 synthetic_experiments.py gives examples of runs and describes
 functionality. 
 
@@ -37,5 +37,5 @@ https://www.schonlau.net/masquerade/MasqueradeDat.gz
 (and we used the first uncorrupted 5k from each of the 50 sequences)
 
 - See the two unit test files (test_SMAs.py andtest_evaluations.py) for additional 
-  insights on the behaviour of the various functions.
+  insights on the behavior of the various functions.
 
