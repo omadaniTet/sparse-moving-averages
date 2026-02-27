@@ -2,24 +2,25 @@
 
 This repository contains code for Sparse Moving Averages (SMAs), or efficient 
 space-bounded categorical predictors, for online open-ended probabilistic prediction
-under non-stationarity, following the papers: 
+under non-stationarity, and code for the papers: 
 "Lifelong Open-Ended Probability Predictors", to appear in TMLR in 2026,
 and the earlier 'Tracking Changing Probabilities via Dynamic
-Learners' ( https://arxiv.org/abs/2402.10142v3 ) (contains additional technical material and experiments). 
+Learners' ( https://arxiv.org/abs/2402.10142v3 ) 
+
 
 'Open-ended' means the set of items that would be seen in the input stream is not known to the predictor, and can grow
 unbounded with passage of time. The predictor, being space-bounded (finite space, independent 
 of stream length), can only predict a relatively small subset of items, each with an estimated 
-probability (a 'moving average'), at any given time.
+probability (a 'moving average'), at any given time. 
+( the page https://omadani.net/SMAs_page.html  contains additional information, including a talk link )
 
-- See SMAs.py for a number of SMAs such as Sparse EMA and Qs
+- The file SMAs.py contains a number of SMAs (Sparse EMA, Qs, ...)
 
 - Use synthetic_experiments.py for evaluating and comparing these techniques
 on a few types of synthesized sequences.  The beginning of
-synthetic_experiments.py gives examples of runs and describes
-functionality. 
+synthetic_experiments.py gives examples of runs and describes functionality. 
 
-- compare_to_ADWIN.py   (comparisons to ADWIN on binary sequences, for TMLR)
+- compare_to_ADWIN.py   for comparisons to ADWIN on binary sequences (for TMLR)
 
 - See dyal_on_binary.py for an example:  a function that generates
 arrays of output (learned) probabilities from running DYAL on a binary 
