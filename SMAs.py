@@ -1,45 +1,74 @@
 #
 #
-# This file, following the paper 'Tracking Changing Probabilities via
-# Dynamic Learners' (https://arxiv.org/abs/2402.10142v2), includes a number 
+# This file includes a number 
 # of sparse moving average techniques ('SMAs'), such as the Sparse EMA, a rate-based
 # technique, and count-based techniques (or queue
 # based, eg Qs), and a combination called DYAL. 
 
-# Time is discrete and the main function of an SMA is to predict at each time
-# point t, meaning outputting zero or more, in general relatively few items (eg 10s to 100s,
-# which depends on the predictor's constant space allotment), each with an 
-# associated probability p, a number in [0,1] (with the rough semantics that the item will be observed at time
-# t with  probability p). The probabilities may also satisfy the semi-distribution property, ie summing to
-# no more than 1 (the plain Qs predictor violates the semi-distribution property, and
-# the Box predictor often outputs a proper distribution). The semi-distribution property is useful and can be imposed 
-# on the output by simple post processing of an SMA's output: see filter_and_cap in sma_eval_utils.py. We  
-# apply filter_and_cap in evaluations.
-#
-# The other important function of an SMA is updating (learning). After prediction, the actual item is observed and 
-# updating can take place. Below, we mostly assume exactly one item is observed at 
-# t (the multiclass property or problem). This observation can be used to update the SMA (adapt the SMA's internal model 
-# or parameters), so that the probabilities output in the future improve or keep up with the changes in the stream.
-# (see the time-stamp method below for some support for the multilabel case, as well as fractional, 
-#  not just 0 or 1, observations). 
-#
-# Thus, SMAs are designed for
-# (detecting and) tracking changing probabilities, i.e., tracking
-# proportions of (discrete) items over a (possibly unbounded) non-stationary 
-# stream of items. For the current techniques below, 'detection' of change, is implicit. 
-
 # The SMAs in this file as of this writing: SEMA (sparse EMA, 'Sima'), Qs, Box, 
 # TimeStampQs, and DYAL.
 
-# common abbreviations used below:
+# Time is discrete and the main function of an SMA is to predict at
+# each time point t, meaning outputting zero or more and in general
+# relatively few items (eg 10s to 100s, which depends on the
+# predictor's constant space allotment), each with an associated
+# probability p, a number in [0, 1] (with the rough semantics that the
+# item will be observed at time t with probability p). The
+# probabilities may also satisfy the semi-distribution property, ie
+# summing to no more than 1 (the plain Qs and DYAl predictors violate
+# the semi-distribution property, while the Box predictor often
+# outputs a proper distribution). The semi-distribution property is
+# useful and can be simply imposed on the output by post processing of
+# an SMA's output: see filter_and_cap in sma_eval_utils.py. We apply
+# filter_and_cap in evaluations.
+#
+# The other important function of an SMA is updating (learning). After
+# prediction, the actual item is observed and updating can take
+# place. Below, we mostly assume exactly one item is observed at t
+# (the multiclass problem). This observation can be used to update the
+# SMA (ie adapt the SMA's internal model or parameters), so that the
+# probabilities output in the future improve or keep up with the
+# changes in the stream.  (see the time-stamp method below for some
+# support for the multilabel case, as well as fractional, not just 0
+# or 1, observations).
+
+#
+# Thus, SMAs are designed for (detecting and) tracking changing
+# probabilities, i.e., tracking proportions of (discrete) items over a
+# (possibly unbounded) non-stationary stream of items. For the current
+# techniques below, 'detection' of change, is implicit.
+
+#
+# Functions implemented by each SMA (could make SMA a virtual class).
+#
+# def predict()   ( or get_distro(), emits a set of probabilities)  
+#
+#
+# def update(observation)  # Update given the observed item.
+#
+#
+# # this one is convenient: get (return) the probability of the item,
+# #    then update the predictor (treating the item as the latest
+# #    observation).
+#
+# def predict_and_update()
+#
+#
+# Other functions: periodic pruning, etc.
+#
+
+# Common abbreviations used below:
 #
 # distro: distribution or semi-distribution
 # SD or sd: semi-distribution
 # lr: learning rate  (and related:  minlr, maxlr, etc)
 # obs : an observation (an item)
 # prob or pr: probability
+#
 # Qs: The 'queues' technique
 #
+# DYAL: A hybrid technique, and "DYAL" stands for DYnamic Adjustment
+# of the Learning (dial it up and down).
 #
 
 
@@ -48,14 +77,14 @@ import random, numpy as np, sys, math
 
 from math import log
 
-from sma_utils import kl_bounded
+from dir_code_backups.dir_for_tmlr2025_paper.sma_utils import kl_bounded
 
 ###
 
 # Decays (lowers) the given rate and returns the result (the lowered
 # value).  Does the lowering via the 'harmonic way' (a double
 # reciprocal). So an lr of 1/2 becomes 1/3, lr of 1/3 becomes 1/4, and
-# so on.
+# so on (down to a floor of min_lr).
 #
 # Assumes the given lr is positive in (0, 1].
 def harmonic_decay(lr, min_lr=0):
@@ -94,13 +123,21 @@ class SMA_Constants:
     # starting point of lr (for EMA harmonic decay)
     max_harmonic_lr = 0.1 # could be 1, 0.1, etc
     
-    # Drop low PRs from EMA probs map within dyal (but not
+    # Drop low probs from EMA probs map within dyal (but not
     # from queues) (if other conditions met...)
     drop_below_min_prob =  True # 1
 
-    min_lr = 0.0005 #  min learning rate
+    #  Min learning rate (DYAL). Go down to this floor.
+    min_lr = 0.0005
+
+    # Ignore/skip the semi-distro constraint on output of DYAL. NOTE:
+    # this simplifies the DYAL technique, and we haven't found a big
+    # difference. DYAL, originally (in the 'Dynamics Learners' paper),
+    # in effect had this option off (ie it would enforce DYAL's output
+    # to be SD).
+    ignore_sd = 1 # False # for DYAL
     
-    # For users of queues.
+    # For users of queues (eg DYAL).
     q_capacity = 3
     # These are used in the binomial test of figuring out whether
     # to switch/listen to the queues.
@@ -123,8 +160,8 @@ class SMA_Constants:
 # A single queue of counts for a single observation (obs), with a
 # constant maximum integer capacity, ie number of cells in the queue
 # (imagined to be small, eg 3 or 5, or 10 etc.). Used in Qs and DYAL.
-# Each cell in the queue keeps a count. See also TimeStampQ (similar
-# in several ways).  >class
+# Each cell in the queue keeps a count. See also TimeStampQ (very
+# similar).   >class
 class ObsQ: # Queue of observation counts.
     def __init__(self, capacity=None):
         # NOTE: queue[0] is the most recent cell, and it's
@@ -147,7 +184,7 @@ class ObsQ: # Queue of observation counts.
 
     ####
     
-    # In obsQ .. NOTE (aug 2023: goes over *all* cells): returns 3
+    # In obsQ .. NOTE (goes over *all* cells): returns 3
     # values, "upper", "lower", "unbiased", but all could be upper
     # bounds in expectation, since it uses the newest/back cell of the
     # queue too, which is a partial or incomplete cell.  Still, if we
@@ -175,6 +212,7 @@ class ObsQ: # Queue of observation counts.
         numerator = 1.0 * len(self.queue)
         if count <= 1.0:
             return numerator / count, 0.0, 0.0
+        # count >= 2.
         return numerator / count, (numerator-1) / count, \
              (numerator-1) / (count-1.0)
 
@@ -301,7 +339,7 @@ class ObsQ: # Queue of observation counts.
 # >Qs or the 'queues' technique.
 #
 # The idea of using (count) queues.
-# (Instead of using a combo of EMA and queues, etc)
+#
 # >class pureQ    >queues ,  class queues
 class Qs:
     def __init__(self, q_capacity=None, min_prob=None):
@@ -331,7 +369,7 @@ class Qs:
         self.reset() # allocate and reset all maps
 
     def reset(self):
-        # map of concept/item to queue
+        # map of item to queue
         self.c_to_q = {}
 
     def get_sizes(self):
@@ -401,7 +439,7 @@ class Qs:
                 continue
             q.increment_count()
 
-    # in Qs
+    # in Qs, get sum of the probabilities.
     def get_sump(self):
         sump = 0
         for c, q2 in self.c_to_q.items():
@@ -417,7 +455,7 @@ class Qs:
     # dropping below a tiny pr is supported (even if the map may
     # otherwise have a relatively small number of entries, ie not too
     # big to prune), so to keep the space consumption by individual
-    # PRs and counts under control (may be relevant to processing
+    # probs and counts under control (may be relevant to processing
     # long/infinite streams).  Set it to 0 if you don't want dropping
     # by such a criterion.
     @classmethod
@@ -429,8 +467,8 @@ class Qs:
             c_to_pr[c] = 1.0 * pos / n
         return cls.lowest_prs(c_to_pr, k, tiny_prob=tiny_prob)
 
-    # in Qs: return the set of low(est) PR items union items with PR
-    # below tiny_prob threshold (lowe PR items).
+    # in Qs: return the set of low(est) prob items union items with
+    # prob below tiny_prob threshold (lowe orob items).
     @classmethod
     def lowest_prs(cls, c_to_pr, k, tiny_prob=0):
         pairs = list(c_to_pr.items())
@@ -463,6 +501,10 @@ class Qs:
 
     ##
 
+    # In Qs
+    def predict(self, normalize=False):
+        return self.get_distro(normalize=normalize)
+    
     # NOTE1: each value in the map returned will be a probability, but
     # may violate the SD property, ie the sum of the values can exceed
     # 1.0, unless normalize is set to true (in that case, will add to
@@ -513,13 +555,14 @@ class Qs:
 ####
 
 # the 'box' predictor or fixed-window estimator: has O(1) time for
-# update (if implemented efficiently)..  Keeps a single queue.. of 100
-# or 1000 (or 100s to 1000s) of item..  So its space consumption is
-# fixed and rigid, and not data driven (a potentially huge
-# disadvantage...) its PRs form a proper DI (distribution), so that's
-# a pro.. but if we want to be reactive to changes, we want a small
-# history, while if we want to support small probs, eg 0.01 or 0.001,
-# we want a long history..  So there is tradeoff here...  >class
+# update (if implemented efficiently as below)..  Keeps a single
+# queue.. of 100 or 1000 (or 100s to 1000s) of item..  So its space
+# consumption is fixed and rigid, and not data driven (a potentially
+# huge disadvantage...) its PRs form a proper DI (distribution), so
+# that's a pro.. but if we want to be reactive to changes, we want a
+# small history, while if we want to support small probs, eg 0.01 or
+# 0.001, we want a long history..  So there is tradeoff here...
+# >class
 class BoxCell: # a queue cell in the box
     def __init__(self):
         self.next = None
@@ -571,6 +614,10 @@ class Box:
             return 0
         return 1.0 * c / self.size
 
+    # In Box.
+    def predict(self):
+        return self.get_distro()
+    
     def get_distro(self):
         sd = {}
         for item, c in self.cmap.items():
@@ -774,7 +821,7 @@ class TimeStampQs:
         self.with_props = with_proportions
         
     def reset(self):
-        self.c_to_q = {} # map of concept/item to queue
+        self.c_to_q = {} # map of item to queue
 
     def get_sizes(self):
         return [ len(self.c_to_q) ]
@@ -813,6 +860,12 @@ class TimeStampQs:
             # return None
             return 0 # 
         return q.get_prob(self.tnow)
+
+    ###
+    
+    # in TimeStampQs
+    def predict(self):
+        return self.get_distro()
 
     def get_distro(self):
         pr_map = {}
@@ -912,12 +965,12 @@ class DYAL:
     def reset(self):
         self.c_to_prob = Counter() # Map from c to the EMA probability.
         self.c_to_lr = {} # Each edge has its own EMA learning rate.
-        self.c_to_q = {} # map of concept/item to queue
+        self.c_to_q = {} # map of item to queue
         # both 'negative and positive' seen counts...
         self.c_to_update = Counter()
         # this 'positive' one may be just for trouble-shooting
         self.c_to_pos_update = Counter() # update_counts or seen_times (positive updates)
-        # count that at least one concept was reset to queue
+        # count that at least one item was reset to queue
         self.reset_to_q = 0
         self.update_count = 0
         # reset to bigger count (q's estimate was bigger than ema)
@@ -927,7 +980,7 @@ class DYAL:
 
     def get_name(self):
         mvc = SMA_Constants
-        return ("DYAL (per-edge rates + Qs): " + 
+        return ("DYAL : " + 
                 "qcap=%d minProb=%.3f " +
                 "minLR:%.4f binoThrsh:%.0f prune_sched:%d\n") % (
                     self.q_capacity, 
@@ -966,11 +1019,18 @@ class DYAL:
 
     def get_sizes(self):
         return len(self.c_to_q), len(self.c_to_prob), len(self.c_to_update)
-        
+
+    ####
+
+    def predict(self):
+        return self.get_distro()
+
     # (in dyal)
     # Get the prediction probs of all (that are being predicted).
     def get_distro(self):
         return self.c_to_prob
+
+    ####
     
     # Get the map of item to lr (the EMA lr)
     def get_lrs(self):
@@ -986,7 +1046,44 @@ class DYAL:
 
     def harmonic_decay(self, lr):
         return harmonic_decay(lr, self.min_lr)
-        
+
+    ##############
+
+    # 
+    def weaken_ema_weights_ignore_sd(self, obs):
+        pairs = self.c_to_prob.items()
+        to_drop = [] # remove these items (too low)..
+        for c, ema_prob in pairs:
+            if c == obs:
+                continue # Note lr for the target is not weakened in this function.
+            assert c is not None # 'None' cannot get into this map (but obs can be None).
+            q = self.get_queue(c, create=0)
+            qprob, qcount, _ = q.get_qinfo()
+            lrc = self.c_to_lr.get(c, 0.0)
+            assert lrc < 1 and lrc > 0, \
+                'learning rate is: %.3f, ema_prob:%.3f, c:%s' % (
+                    lrc, ema_prob, c)
+            if self.qprob_is_sufficiently_lower(ema_prob, q, qprob, qcount):
+                self.reset_to_qless += 1
+                self.reset_to_q += 1
+                if self.drop_below_min_prob and qprob < self.min_prob:
+                    to_drop.append(c)
+                    continue
+                self.c_to_lr[c] = 1.0 / qcount # the new learning rate.
+                self.c_to_prob[c] = qprob
+            else:
+                ema_prob = (1 - lrc) * ema_prob
+                self.c_to_prob[c] = ema_prob
+                self.c_to_lr[c] = self.harmonic_decay(lrc) # decay lrc
+
+        for c in to_drop:
+            self.c_to_prob.pop(c)
+            self.c_to_lr.pop(c)
+
+    #######
+    
+    # older weaken. May get deprecated and removed.
+    #
     # June 2023: should work when observation is None. (should mean
     # weaken all existing connections)
     #
@@ -994,10 +1091,10 @@ class DYAL:
     # q_prob is lower with sufficient evidence ... if not resetting to
     # queue, then decay the rate (for all except for obs). Returns
     # available (free/unused) PR mass.
-    def weaken_ema_weights_simple(self, obs):
+    def weaken_ema_weights(self, obs):
         pairs = self.c_to_prob.items()
         used_up = 0.0 # prob mass used up
-        to_drop = [] # remove these items..
+        to_drop = [] # remove these items (too low)..
         for c, ema_prob in pairs:
             if c == obs:
                 used_up += ema_prob
@@ -1013,7 +1110,7 @@ class DYAL:
                 if ema_prob < self.min_prob and qprob < self.min_prob:
                     to_drop.append(c)
                     continue
-            if self.actual_prob_is_sufficiently_lower(ema_prob, q, qprob, qcount):
+            if self.qprob_is_sufficiently_lower(ema_prob, q, qprob, qcount):
                 self.reset_to_qless += 1
                 self.reset_to_q += 1
                 if self.drop_below_min_prob and qprob < self.min_prob:
@@ -1030,6 +1127,7 @@ class DYAL:
                 used_up += ema_prob
 
         assert used_up < 1.0 + 0.001
+
         for c in to_drop:
             self.c_to_prob.pop(c)
 
@@ -1039,29 +1137,19 @@ class DYAL:
     ############
 
     # Uses the binomial tail test.
-    def whether_to_use_queue(
-            self, c, ema_prob, q, qprob, qcount, check_lower=False):
+    def whether_to_use_queue(self, c, ema_prob, q, qprob, qcount):
         if ema_prob <= 0:
             return True
         is_higher = self.actual_prob_is_sufficiently_higher_simple(
             ema_prob, qprob, qcount)
         if is_higher:
             return True
-        if not check_lower:
-            return False
-
-        lr = self.c_to_lr[c] # the current learning rate of EMA
-        is_lower = self.actual_prob_is_sufficiently_lower(
-            ema_prob, lr, q, qprob, qcount)
-        if is_lower:
-            return True
-        return False
 
     # these can be made more elaborate, but simple comparisons worked
     # fine.
-    @classmethod
-    def is_qprob_sufficiently_lower(self, prob1,  qprob):
-        return qprob < prob1
+    #@classmethod
+    #def is_qprob_sufficiently_lower(self, prob1,  qprob):
+    #    return qprob < prob1
 
     @classmethod
     def is_qprob_sufficiently_higher(self, prob1, qprob):
@@ -1095,22 +1183,26 @@ class DYAL:
     # Actual prob., or 'observed' prob, as judged/estimated by the
     # queue prob.  If the queue prob (proportion observed) is so small
     # that, with very high confidence, could not have been generated
-    # by the ema_prob (by a coin with ema prob), then reset to the
-    # queue prob.
-    def actual_prob_is_sufficiently_lower(
+    # by the ema_prob (by a coin with prob equal to ema prob), then
+    # reset to the queue prob.
+    def qprob_is_sufficiently_lower(
             self, ema_prob,  q, qprob_all, qcount_all):
         # query (probability) is our model's estimate
         # query = max(ema_prob, self.min_prob)
+        
         qcount = q.get_back_count() # back cell of the queue
-        qprob = 1.0 / qcount
+        qprob = 1.0 / qcount # upper estimate (in an expected sense)
         if qprob_all < qprob:
             qprob = qprob_all
             qcount = qcount_all
 
-        if not self.is_qprob_sufficiently_lower(ema_prob, qprob):
+        #if not self.is_qprob_sufficiently_lower(ema_prob, qprob):
+        #    return False
+
+        if qprob >= ema_prob:
             return False
             
-        # Now, check significance.
+        # qprob is lower, now check significance.
         #
         # Upper bound the chance that the query prob (our model's
         # proposed prob) yields such a low observed qprob.
@@ -1160,7 +1252,7 @@ class DYAL:
                 self.c_to_q[obs] = q
         return q
 
-    # in per-edge dyal: written specifically for simplified version
+    # in  dyal: written specifically for simplified version
     # of update() below.
     def update_queues(self, obs):
         for c, q in self.c_to_q.items():
@@ -1171,11 +1263,67 @@ class DYAL:
                 q.increment_count()
     
     ###
-    # in dyal
+    #
+    # in DYAL
+    #
+
+    # obs can be None.
+    #
+    # Simpler 2026 version of update().
+    def update_ignore_sd(self, obs):
+        self.update_update_counts_etc(obs)
+        # Should allocate queue, if not allocated (see get_queue below).
+        qprob = None
+        if obs is not None:
+            q = self.get_queue(obs, create=1)
+            qprob, qcount, _ = q.get_qinfo()
+        self.update_queues(obs) # Now update all the queues.
+
+        # Weaken existing EMA weights too! and we are done if no queue.
+        self.weaken_ema_weights_ignore_sd(obs)
+        
+        if qprob is None or qprob <= 0.0:
+            # Nothing else to do (a new item).
+            return
+        
+        # First check whether we need to listen to the queue..
+        ema_prob = self.c_to_prob.get(obs, 0.0) # Existing EMA prob.
+        
+        # switch to the queue estimate?
+        use_queue_prob = self.whether_to_use_queue(
+            obs, ema_prob, q, qprob, qcount)
+
+        # Dont do anything (when qprob is too low and ema_prob is 0.0)..
+        if qprob < self.min_prob and self.drop_below_min_prob and ema_prob == 0.0:
+            return
+
+        # Boost the EMA (edge) weight to the observation.  First
+        # compute the delta (how much to add).
+        if use_queue_prob:
+            # The prob. mass needed for this update.
+            delta = qprob - ema_prob
+            self.c_to_lr[obs] = 1.0 / qcount # my new learning rate.
+            self.reset_to_qbigger += 1 # informational.
+            self.reset_to_q += 1
+        else:
+            # Normal EMA update: compute delta
+            lr = self.c_to_lr[obs]
+            new_prob = (1-lr) * ema_prob + lr
+            delta = new_prob - ema_prob
+            # Now decay the lr
+            self.c_to_lr[obs] = self.harmonic_decay(lr)
+
+        self.c_to_prob[obs] = ema_prob + delta # new ema prob
+        assert self.c_to_prob[obs] > 0
+
+
     #
     # Note: obs could be None too, which basically means weaken all.
     # 
-    def update(self, obs, t=None):
+    def update(self, obs):
+        if SMA_Constants.ignore_sd:
+            return self.update_ignore_sd(obs)
+        
         self.update_update_counts_etc(obs)
         # Should allocate queue, if not allocated (see get_queue below).
         qprob = None
@@ -1184,7 +1332,7 @@ class DYAL:
             qprob, qcount, _ = q.get_qinfo()
         self.update_queues(obs) # Now update all the queues.
         # Weaken existing EMA weights too! and we are done if no queue.
-        available = self.weaken_ema_weights_simple(obs)
+        available = self.weaken_ema_weights(obs)
         
         if qprob is None or qprob <= 0.0:
             # Nothing else to do (a new item).
@@ -1194,7 +1342,7 @@ class DYAL:
         ema_prob = self.c_to_prob.get(obs, 0.0) # Existing EMA prob.
         # switch to the queue estimate?
         use_queue_prob = self.whether_to_use_queue(
-            obs, ema_prob, q, qprob, qcount, check_lower=False)
+            obs, ema_prob, q, qprob, qcount)
 
         # Dont do anything (when qprob is too low and ema_prob is 0.0)..
         if qprob < self.min_prob and self.drop_below_min_prob and ema_prob == 0.0:
@@ -1209,14 +1357,14 @@ class DYAL:
         # Boost the EMA (edge) weight to the observation.  First
         # compute the delta (how much to add).
         if use_queue_prob:
-            self.reset_to_qbigger += 1
-            self.reset_to_q += 1
-            # The prob. mass need for this update.
+            # The prob. mass needed for this update.
             delta = min(qprob - ema_prob, available)
             self.c_to_lr[obs] = 1.0 / qcount # my new learning rate.
+            self.reset_to_qbigger += 1 # informational.
+            self.reset_to_q += 1
         else:
-            lr = self.c_to_lr[obs]
             # Normal EMA update: compute delta
+            lr = self.c_to_lr[obs]
             new_prob = (1-lr) * ema_prob + lr
             delta = min(new_prob - ema_prob, available)
             # Now decay the lr
@@ -1225,6 +1373,8 @@ class DYAL:
 
         assert self.c_to_prob[obs] > 0
 
+    ####
+    
     # Update the update counts
     def update_update_counts_etc(self, obs):
         self.update_count += 1
@@ -1333,7 +1483,7 @@ class DYAL:
 # Sparse (multiclass) EMA (SEMA) ..  Two variants are supported:
 # static or plain fixed-rate SEMA (ie no change in the learning rate),
 # and harmonic-decay SEMA (start the rate high and gradually lower it,
-# hamonically) down to a minimum.
+# hamonically down to a minimum).
 #
 # >class >SEMA >static sparse >EMA (harmonic decay, when use_harmonic
 # is set to true).
@@ -1390,7 +1540,7 @@ class EMA:
         self.update(obs)
         return prob
 
-    # in SEMA
+    # in SEMA  (sparse EMA)
     def update(self, obs):
         r = self.get_rate_etc(update=self.use_harmonic)
         plain_ema_update(obs, self.ema_sd, r)
@@ -1408,7 +1558,7 @@ class EMA:
             return ("Sparse EMA, static fixed rate=%.4f") % \
                 (self.rate)
 
-    # (in static EMA) Get probability stats (in ema map).
+    # (in SEMA) Get probability stats (in ema map).
     # For now median, max, and sum total of probs.
     def get_ema_stats(self):
         ws = list(self.ema_sd.values())
@@ -1416,7 +1566,7 @@ class EMA:
             return 0, 0, 0
         return np.median(ws), np.max(ws), np.sum(ws)
 
-    # in sparse EMA
+    # in SEMA
     def get_stats(self):
         median_w, max_w, totw = self.get_ema_stats()
         return {'name': 'SEMA',
@@ -1439,9 +1589,16 @@ class EMA:
             if update: # do a harmonic decay of rate.
                 self.rate = harmonic_decay(self.rate, self.min_rate)
             return rate
+    ##
 
+    # in SEMA.
+    def predict(self):
+        return self.get_distro()
+    
     def get_distro(self):
         return self.ema_sd
+
+    ###
     
     def get_lr(self):
         return self.rate
