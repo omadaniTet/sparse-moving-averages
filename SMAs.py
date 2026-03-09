@@ -725,8 +725,8 @@ class TimeStampQ:  # single queue
         # number of updates including latest time tnow.. )
         #
         # An unbiased estimate is: (count positives - 1) / (count
-        # trials - 2) (where trials is up to and including the
-        # observed positive) (and we do this for completed cells only,
+        # trials - 1) (where trials is up to and including the
+        # observed positive, or 'failures' + 'successes' ) (and we do this for completed cells only,
         # or count positives is qlen-1, and note that: count trials,
         # for the completed cells, is self.queue[0] - self.queue[-1] +
         # 1)
