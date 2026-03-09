@@ -32,13 +32,14 @@ import argparse
 # created dir_venv
 # python3 -m venv dir_venv
 # source dir_venv/bin/activate
-# python3 -m pip install river  # now this worked! (in virtual env)
+# may have to pip install 'typing_extensions' as well.
+# python3 -m pip install river
 
 ###
 
 # Comparing ADWIN to Qs and DYAL.
 #
-# Compare on k sequences of n events (observations) long.
+# Compare on k sequences, each of n events (observations) long.
 # 
 # Both capped logloss and Brier (quadratic loss) are reported.
 #
@@ -86,6 +87,7 @@ def compare(
             print('\n# qs_vals: ', indxed_str(vals_qs))
             
         adw_brier = simpler_brier(vals_adw)
+
         if qs_brier < adw_brier:
             br_wins_qs += 1
         if dyal_brier < adw_brier:
@@ -146,6 +148,10 @@ def gen_seq( minobs, n, p1, p2, pit=0):
         pr = random.uniform(0, 1)
     pos, seq = 0, []
     idx, i = 0, 0
+
+    if pit:
+        print('\n\n# initial pr:%.2f' % pr )
+    
     while i < n:
         item = 0
         if random.uniform(0, 1) < pr:
@@ -188,16 +194,26 @@ def apply_qs(seq):
 
 ###
 
-# reports RMSE (equivalent to Brier on binary outcomes)
+# Can also report RMSE (equivalent to Brier on binary outcomes)
 #
-def simpler_brier(ps, do_str=0):
+def simpler_brier(ps, do_str=0, do_rmse=0):
     e = 0
     for p in ps:
         e += (1-p) * (1-p)
-    # root mean squared error
+        # Do Brier (twise RMSE)
+        if not do_rmse:
+            e += (1-p) * (1-p)
+        
     if do_str:
         return '%.3f' % math.sqrt( e / len(ps) )
-    return  math.sqrt( e / len(ps) )
+
+    if do_rmse:
+        return  math.sqrt( e / len(ps) )
+    else:
+        # plain Brier
+        return  e / len(ps)
+        
+        
 
 # simple capped logloss.
 def simpler_ll( ps, max_loss=5, ignore=0, do_str=0 ):
