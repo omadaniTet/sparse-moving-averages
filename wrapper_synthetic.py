@@ -27,13 +27,16 @@ if __name__ == "__main__":
     args.dev = 1.5 # 2 # can change  to 2, etc. (on command line, or here)
 
     print('\n#  deviation thresh: %.1f' % args.dev)
-    print('#  num trials: %d' % args.ntrials)
+    print('#  num trials: %d' % args.ntrials) # number of sequences
     print('#  seqlen: %d' % args.seqlen)
     print('#  seqtype: %s' % args.seqtype)
     print('#  probs: %s' % args.probs)
     
     args.dv = True # report deviation thresholds.
-
+    # args.brier = True # # report Brier ..
+    
+    # Go over each SMA in the list, go over one or a few minobs values
+    # and average the performance.
     for sma in ['ema', 'qs', 'dyal']:
         args.sma = sma
         print('\n\n# ------------------ \n# SMA:', sma, '\n')
