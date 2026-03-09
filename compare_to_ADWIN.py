@@ -32,14 +32,13 @@ import argparse
 # created dir_venv
 # python3 -m venv dir_venv
 # source dir_venv/bin/activate
-# may have to pip install 'typing_extensions' as well.
-# python3 -m pip install river
+# python3 -m pip install river  # now this worked! (in virtual env)
 
 ###
 
 # Comparing ADWIN to Qs and DYAL.
 #
-# Compare on k sequences, each of n events (observations) long.
+# Compare on k sequences of n events (observations) long.
 # 
 # Both capped logloss and Brier (quadratic loss) are reported.
 #
